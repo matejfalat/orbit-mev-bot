@@ -1,7 +1,7 @@
 import {Address} from 'viem'
 import _ from 'lodash'
 import {getPublicClient} from '../../utils/blockchain'
-import {MANTISSA_FACTOR} from '../../utils/general'
+import {MANTISSA_FACTOR, minBigint} from '../../utils/general'
 import {oTokenAbi, oracleRouterAbi, spaceStationAbi} from '../../config/abi'
 import {
   ORACLE_ROUTER_ADDRESS,
@@ -15,31 +15,25 @@ type Position = {
   shortfall: bigint
 }
 
+// The amount of seized tokens can't exceed user's balance and the exact amount is calculated based on floating oToken exchange rate.
+// When seizing the collateral fully, we subtract a small part from the repay amount to prevent liquidation from failing.
+// Scaled by 1e18.
+const MAX_REPAY_AMOUNT_MARGIN_MANTISSA = 999_000_000_000_000_000n
+
 export const prepareLiquidation = async ({
   position: {borrower, borrowBalance, assets: assetsAddresses},
   oTokenAddress,
   closeFactorMantissa,
+  liquidationIncentiveMantissa,
   borrowTokenPrice,
 }: {
   position: Position
   oTokenAddress: Address
   closeFactorMantissa: bigint
+  liquidationIncentiveMantissa: bigint
   borrowTokenPrice: bigint
 }) => {
   const publicClient = getPublicClient()
-
-  const maxAllowedRepayAmount =
-    (borrowBalance * closeFactorMantissa) / MANTISSA_FACTOR
-
-  const intendedRepayAmount =
-    process.env.REPAY_LIMIT_USD &&
-    (BigInt(process.env.REPAY_LIMIT_USD) * MANTISSA_FACTOR ** 2n) /
-      borrowTokenPrice
-
-  const repayAmount =
-    intendedRepayAmount && intendedRepayAmount < maxAllowedRepayAmount
-      ? intendedRepayAmount
-      : maxAllowedRepayAmount
 
   const multicallConfig = assetsAddresses.flatMap(
     (assetAddress) =>
@@ -61,6 +55,12 @@ export const prepareLiquidation = async ({
           functionName: 'exchangeRateCurrent',
         },
         {
+          abi: oTokenAbi,
+          address: assetAddress,
+          functionName: 'balanceOf',
+          args: [borrower],
+        },
+        {
           abi: oracleRouterAbi,
           address: ORACLE_ROUTER_ADDRESS,
           functionName: 'getUnderlyingPrice',
@@ -74,14 +74,15 @@ export const prepareLiquidation = async ({
     allowFailure: false,
   })
 
-  const assets = _.chunk(data, 4)
+  const assets = _.chunk(data, 5)
     .map((assetData, index) => {
       const [
         underlyingBalance,
         protocolSeizeShareMantissa,
         exchangeRateCurrent,
+        balance,
         underlyingPrice,
-      ] = assetData as [bigint, bigint, bigint, bigint]
+      ] = assetData as [bigint, bigint, bigint, bigint, bigint]
 
       const address = assetsAddresses[index]!
 
@@ -90,6 +91,7 @@ export const prepareLiquidation = async ({
 
       return {
         address,
+        balance,
         underlyingBalance,
         underlyingPrice,
         underlyingUsdValue,
@@ -100,6 +102,28 @@ export const prepareLiquidation = async ({
     .toSorted((a, b) => Number(b.underlyingUsdValue - a.underlyingUsdValue))
 
   const assetToReceive = assets[0]!
+
+  const rawCollateralBalanceMaxRepayAmount =
+    (assetToReceive.underlyingUsdValue * MAX_REPAY_AMOUNT_MARGIN_MANTISSA) /
+    borrowTokenPrice
+
+  const collateralBalanceMaxRepayAmount =
+    (rawCollateralBalanceMaxRepayAmount * MANTISSA_FACTOR) /
+    liquidationIncentiveMantissa
+
+  const closeFactorMaxRepayAmount =
+    (borrowBalance * closeFactorMantissa) / MANTISSA_FACTOR
+
+  const intendedMaxRepayAmount = process.env.REPAY_LIMIT_USD
+    ? (BigInt(process.env.REPAY_LIMIT_USD) * MANTISSA_FACTOR ** 2n) /
+      borrowTokenPrice
+    : undefined
+
+  const repayAmount = minBigint(
+    intendedMaxRepayAmount,
+    closeFactorMaxRepayAmount,
+    collateralBalanceMaxRepayAmount,
+  )
 
   const seizeAmountResult = await publicClient.readContract({
     abi: spaceStationAbi,
