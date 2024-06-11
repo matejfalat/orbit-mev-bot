@@ -125,11 +125,21 @@ export const prepareLiquidation = async ({
     collateralBalanceMaxRepayAmount,
   )
 
-  const seizeAmountResult = await publicClient.readContract({
-    abi: spaceStationAbi,
-    address: SPACE_STATION_ADDRESS,
-    functionName: 'liquidateCalculateSeizeTokens',
-    args: [oTokenAddress, assetToReceive.address, repayAmount],
+  const [, seizeAmountResult] = await publicClient.multicall({
+    allowFailure: false,
+    contracts: [
+      {
+        abi: oTokenAbi,
+        address: assetToReceive.address,
+        functionName: 'accrueInterest',
+      },
+      {
+        abi: spaceStationAbi,
+        address: SPACE_STATION_ADDRESS,
+        functionName: 'liquidateCalculateSeizeTokens',
+        args: [oTokenAddress, assetToReceive.address, repayAmount],
+      },
+    ],
   })
 
   const seizeTokens = seizeAmountResult[1]

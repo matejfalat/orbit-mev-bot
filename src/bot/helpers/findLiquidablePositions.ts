@@ -14,33 +14,35 @@ export const findLiquidablePositions = async (
 ) => {
   const publicClient = getPublicClient()
 
-  const [closeFactorMantissa, liquidationIncentiveMantissa, borrowTokenPrice] =
-    await publicClient.multicall({
-      allowFailure: false,
-      contracts: [
-        {
-          abi: spaceStationAbi,
-          address: SPACE_STATION_ADDRESS,
-          functionName: 'closeFactorMantissa',
-        },
-        {
-          abi: spaceStationAbi,
-          address: SPACE_STATION_ADDRESS,
-          functionName: 'liquidationIncentiveMantissa',
-        },
-        {
-          abi: oracleRouterAbi,
-          address: ORACLE_ROUTER_ADDRESS,
-          functionName: 'getUnderlyingPrice',
-          args: [oTokenAddress],
-        },
-      ],
-    })
+  const protocolParametersPromise = publicClient.multicall({
+    allowFailure: false,
+    contracts: [
+      {
+        abi: spaceStationAbi,
+        address: SPACE_STATION_ADDRESS,
+        functionName: 'closeFactorMantissa',
+      },
+      {
+        abi: spaceStationAbi,
+        address: SPACE_STATION_ADDRESS,
+        functionName: 'liquidationIncentiveMantissa',
+      },
+      {
+        abi: oracleRouterAbi,
+        address: ORACLE_ROUTER_ADDRESS,
+        functionName: 'getUnderlyingPrice',
+        args: [oTokenAddress],
+      },
+    ],
+  })
 
-  const positionsWithShortfall = await findPositionsWithShortfall(
-    borrowers,
-    oTokenAddress,
-  )
+  const [
+    [closeFactorMantissa, liquidationIncentiveMantissa, borrowTokenPrice],
+    positionsWithShortfall,
+  ] = await Promise.all([
+    protocolParametersPromise,
+    findPositionsWithShortfall(borrowers, oTokenAddress),
+  ])
 
   return Promise.all(
     positionsWithShortfall.map((position) =>
