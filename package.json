@@ -1,0 +1,16 @@
+{
+  "name": "Orbit_MEV_bot",
+  "version": "1.0.0",
+  "main": "index.js",
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "tsx": "^4.12.0",
+    "typescript": "^5.4.5",
+    "viem": "^2.13.7"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.2",
+    "prettier": "^3.3.1"
+  }
+}
