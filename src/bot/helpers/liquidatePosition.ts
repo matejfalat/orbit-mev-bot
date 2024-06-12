@@ -15,7 +15,7 @@ type LiquidatePositionArgs = {
 
 export const liquidatePosition = async (
   {borrower, collateralToken, repayAmount, profitUsd}: LiquidatePositionArgs,
-  oTokenAddress: Address,
+  borrowOTokenAddress: Address,
 ) => {
   const parsedMinProfitUsd = Number(process.env.MIN_PROFIT_USD)
   const minProfitUsd = Number.isNaN(parsedMinProfitUsd) ? 0 : parsedMinProfitUsd
@@ -31,7 +31,7 @@ export const liquidatePosition = async (
 
   const {result, request} = await publicClient.simulateContract({
     abi: oErc20Abi,
-    address: oTokenAddress,
+    address: borrowOTokenAddress,
     account: walletAccount,
     functionName: 'liquidateBorrow',
     args: [borrower, repayAmount, collateralToken],

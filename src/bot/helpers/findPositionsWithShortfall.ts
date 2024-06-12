@@ -38,28 +38,28 @@ export const findPositionsWithShortfall = async (
     allowFailure: false,
   })
 
-  const {accountLiquidities, accountAssetsIn} = rawAccountDetails.reduce<{
-    accountLiquidities: bigint[]
+  const {accountShorfalls, accountAssetsIn} = rawAccountDetails.reduce<{
+    accountShorfalls: bigint[]
     accountAssetsIn: Address[][]
   }>(
     (acc, value, index) => {
       if (index % 2 === 0) {
         const liquidity = value as [bigint, bigint, bigint]
-        acc.accountLiquidities.push(liquidity[2])
+        acc.accountShorfalls.push(liquidity[2])
       } else {
         acc.accountAssetsIn.push(value as Address[])
       }
 
       return acc
     },
-    {accountLiquidities: [], accountAssetsIn: []},
+    {accountShorfalls: [], accountAssetsIn: []},
   )
 
   const positionsWithShortfall = activeBorrowPositions
     .map((position, index) => ({
       ...position,
       assets: accountAssetsIn[index]!,
-      shortfall: accountLiquidities[index]!,
+      shortfall: accountShorfalls[index]!,
     }))
     .filter((position) => position.shortfall !== 0n)
 

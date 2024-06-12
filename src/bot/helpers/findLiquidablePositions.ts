@@ -10,7 +10,7 @@ import {
 
 export const findLiquidablePositions = async (
   borrowers: Address[],
-  oTokenAddress: Address,
+  borrowOTokenAddress: Address,
 ) => {
   const publicClient = getPublicClient()
 
@@ -31,7 +31,7 @@ export const findLiquidablePositions = async (
         abi: oracleRouterAbi,
         address: ORACLE_ROUTER_ADDRESS,
         functionName: 'getUnderlyingPrice',
-        args: [oTokenAddress],
+        args: [borrowOTokenAddress],
       },
     ],
   })
@@ -41,14 +41,14 @@ export const findLiquidablePositions = async (
     positionsWithShortfall,
   ] = await Promise.all([
     protocolParametersPromise,
-    findPositionsWithShortfall(borrowers, oTokenAddress),
+    findPositionsWithShortfall(borrowers, borrowOTokenAddress),
   ])
 
   return Promise.all(
     positionsWithShortfall.map((position) =>
       prepareLiquidation({
         position,
-        oTokenAddress,
+        borrowOTokenAddress,
         closeFactorMantissa,
         liquidationIncentiveMantissa,
         borrowTokenPrice,

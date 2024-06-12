@@ -20,19 +20,10 @@ type Position = {
 // Scaled by 1e18.
 const MAX_REPAY_AMOUNT_MARGIN_MANTISSA = 999_000_000_000_000_000n
 
-export const prepareLiquidation = async ({
-  position: {borrower, borrowBalance, assets: assetsAddresses},
-  oTokenAddress,
-  closeFactorMantissa,
-  liquidationIncentiveMantissa,
-  borrowTokenPrice,
-}: {
-  position: Position
-  oTokenAddress: Address
-  closeFactorMantissa: bigint
-  liquidationIncentiveMantissa: bigint
-  borrowTokenPrice: bigint
-}) => {
+const getMostValuableAsset = async (
+  borrower: Address,
+  assetsAddresses: Address[],
+) => {
   const publicClient = getPublicClient()
 
   const multicallConfig = assetsAddresses.flatMap(
@@ -101,7 +92,25 @@ export const prepareLiquidation = async ({
     })
     .toSorted((a, b) => Number(b.underlyingUsdValue - a.underlyingUsdValue))
 
-  const assetToReceive = assets[0]!
+  return assets[0]!
+}
+
+export const prepareLiquidation = async ({
+  position: {borrower, borrowBalance, assets: assetsAddresses},
+  borrowOTokenAddress,
+  closeFactorMantissa,
+  liquidationIncentiveMantissa,
+  borrowTokenPrice,
+}: {
+  position: Position
+  borrowOTokenAddress: Address
+  closeFactorMantissa: bigint
+  liquidationIncentiveMantissa: bigint
+  borrowTokenPrice: bigint
+}) => {
+  const publicClient = getPublicClient()
+
+  const assetToReceive = await getMostValuableAsset(borrower, assetsAddresses)
 
   const rawCollateralBalanceMaxRepayAmount =
     (assetToReceive.underlyingUsdValue * MAX_REPAY_AMOUNT_MARGIN_MANTISSA) /
@@ -137,7 +146,7 @@ export const prepareLiquidation = async ({
         abi: spaceStationAbi,
         address: SPACE_STATION_ADDRESS,
         functionName: 'liquidateCalculateSeizeTokens',
-        args: [oTokenAddress, assetToReceive.address, repayAmount],
+        args: [borrowOTokenAddress, assetToReceive.address, repayAmount],
       },
     ],
   })

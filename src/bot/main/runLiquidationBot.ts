@@ -9,14 +9,14 @@ import {filterActiveBorrowPositions} from '../helpers/filterActiveBorrowPosition
 
 const BLOCK_PROCESSING_FREQUENCY = 5
 
-export const runLiquidationBot = async (oTokenAddress: Address) => {
+export const runLiquidationBot = async (borrowOTokenAddress: Address) => {
   const publicClient = getPublicClient()
   const webSocketPublicClient = getWebSocketPublicClient()
-  const allBorrowers = await getAllBorrowers(oTokenAddress)
+  const allBorrowers = await getAllBorrowers(borrowOTokenAddress)
 
   const activeBorrowPositions = await filterActiveBorrowPositions(
     allBorrowers,
-    oTokenAddress,
+    borrowOTokenAddress,
   )
 
   const borrowers = new Set(
@@ -26,7 +26,7 @@ export const runLiquidationBot = async (oTokenAddress: Address) => {
   console.log('Borrowers fetched:', borrowers.size)
 
   publicClient.watchContractEvent({
-    address: oTokenAddress,
+    address: borrowOTokenAddress,
     abi: oTokenAbi,
     eventName: 'Borrow',
     onLogs: (logs) => {
@@ -51,7 +51,7 @@ export const runLiquidationBot = async (oTokenAddress: Address) => {
       try {
         const liquidablePositions = await findLiquidablePositions(
           [...borrowers],
-          oTokenAddress,
+          borrowOTokenAddress,
         )
 
         console.log(
@@ -60,7 +60,7 @@ export const runLiquidationBot = async (oTokenAddress: Address) => {
 
         await Promise.allSettled(
           liquidablePositions.map((position) =>
-            liquidatePosition(position, oTokenAddress),
+            liquidatePosition(position, borrowOTokenAddress),
           ),
         )
       } catch (error) {
