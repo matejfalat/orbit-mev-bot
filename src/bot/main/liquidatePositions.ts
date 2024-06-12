@@ -11,6 +11,10 @@ export const liquidatePositions = async (borrowOTokenAddress: Address) => {
     borrowOTokenAddress,
   )
 
+  if (liquidablePositions.length === 0) {
+    console.log('No liquidable positions found')
+  }
+
   await Promise.all(
     liquidablePositions.map((position) =>
       liquidatePosition(position, borrowOTokenAddress),
