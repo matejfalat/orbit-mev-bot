@@ -157,7 +157,7 @@ export const prepareLiquidation = async ({
   const repayUsdValue = (repayAmount * borrowTokenPrice) / MANTISSA_FACTOR
   const profitUsd = Number(receiveUsdValue - repayUsdValue) / 1e18
 
-  console.log({
+  console.log('Liquidable position found:', {
     repayUsdValue: Number(repayUsdValue) / 1e18,
     seizeUsdValue: Number(seizeUsdValue) / 1e18,
     receiveUsdValue: Number(receiveUsdValue) / 1e18,

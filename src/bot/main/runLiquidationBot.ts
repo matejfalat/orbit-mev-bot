@@ -2,7 +2,7 @@ import {Address} from 'viem'
 import {findLiquidablePositions} from '../helpers/findLiquidablePositions'
 import {getAllBorrowers} from '../helpers/getAllBorrowers'
 import {liquidatePosition} from '../helpers/liquidatePosition'
-import {getPublicClient} from '../../utils/blockchain'
+import {getPublicClient, getWebSocketPublicClient} from '../../utils/blockchain'
 import {oTokenAbi} from '../../config/abi'
 import {isDefined} from '../../utils/general'
 import {filterActiveBorrowPositions} from '../helpers/filterActiveBorrowPositions'
@@ -11,6 +11,7 @@ const BLOCK_PROCESSING_FREQUENCY = 5
 
 export const runLiquidationBot = async (oTokenAddress: Address) => {
   const publicClient = getPublicClient()
+  const webSocketPublicClient = getWebSocketPublicClient()
   const allBorrowers = await getAllBorrowers(oTokenAddress)
 
   const activeBorrowPositions = await filterActiveBorrowPositions(
@@ -40,7 +41,7 @@ export const runLiquidationBot = async (oTokenAddress: Address) => {
     },
   })
 
-  publicClient.watchBlocks({
+  webSocketPublicClient.watchBlocks({
     blockTag: 'latest',
     onBlock: async (block) => {
       if (Number(block.number) % BLOCK_PROCESSING_FREQUENCY !== 0) {
